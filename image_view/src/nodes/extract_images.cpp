@@ -41,6 +41,8 @@
 
 #include <boost/thread.hpp>
 #include <boost/format.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 class ExtractImages
 {
@@ -56,6 +58,8 @@ private:
   double _time;
   double sec_per_frame_;
 
+  bool use_time_stamps_;
+
 #if defined(_VIDEO)
   CvVideoWriter* video_writer;
 #endif //_VIDEO
@@ -69,6 +73,7 @@ public:
 
     std::string format_string;
     local_nh.param("filename_format", format_string, std::string("frame%04i.jpg"));
+    use_time_stamps_ = boost::algorithm::contains(format_string, "%s");
     filename_format_.parse(format_string);
 
     local_nh.param("sec_per_frame", sec_per_frame_, 0.1);
@@ -114,7 +119,13 @@ public:
       _time = ros::Time::now().toSec();
 
       if (!image.empty()) {
-        std::string filename = (filename_format_ % count_).str();
+        std::string filename;
+        if (use_time_stamps_) {
+            const std::string stamp_str = boost::posix_time::to_iso_string(msg->header.stamp.toBoost());
+            filename = (filename_format_ % stamp_str).str();
+        } else {
+            filename = (filename_format_ % count_).str();
+        }
 
 #if !defined(_VIDEO)
         cv::imwrite(filename, image);
